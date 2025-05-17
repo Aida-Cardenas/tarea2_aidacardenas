@@ -28,16 +28,24 @@ class PerceptronMulticapa:
         self.sesgos.append(np.zeros((1, n_salida)))
     
     def sigmoide(self, x):
-        return 1 / (1 + np.exp(-x))
+        # Agregar clipeo para evitar desbordamiento
+        return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
     
     def derivada_sigmoide(self, x):
         return x * (1 - x)
     
     def forward(self, X):
+        # Asegurar que X sea un numpy array
+        X = np.array(X, dtype=float)
+        
+        # Manejar casos de una sola muestra (1D)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+            
         self.activaciones = [X]
         self.z = []
         
-        # forward propagation yay
+        # forward propagation
         for i in range(len(self.pesos)):
             z = np.dot(self.activaciones[-1], self.pesos[i]) + self.sesgos[i]
             self.z.append(z)
@@ -47,13 +55,20 @@ class PerceptronMulticapa:
         return self.activaciones[-1]
     
     def backward(self, X, y, learning_rate):
+        # asegurar que y sea un numpy array
+        y = np.array(y, dtype=float)
+        
+        # manejar casos de una sola muestra (1D)
+        if y.ndim == 1 and self.n_salida > 1:
+            y = y.reshape(1, -1)
+            
         m = X.shape[0]
         
         # calculo error de salida
         error = self.activaciones[-1] - y
         delta = error * self.derivada_sigmoide(self.activaciones[-1])
         
-        # backpropagation ajksdf
+        # backpropagation
         for i in range(len(self.pesos)-1, -1, -1):
             # actualizar valor de pesos y sesgos
             self.pesos[i] -= learning_rate * np.dot(self.activaciones[i].T, delta)
@@ -65,6 +80,19 @@ class PerceptronMulticapa:
                 delta = error * self.derivada_sigmoide(self.activaciones[i])
     
     def entrenar(self, X, y, epocas, learning_rate=0.1):
+        # asegurar que x and y sean numpy arrays
+        X = np.array(X, dtype=float)
+        y = np.array(y, dtype=float)
+        
+        # manejar formato de y para salida única y multiple
+        if y.ndim == 1 and self.n_salida > 1:
+            y_new = np.zeros((y.shape[0], self.n_salida))
+            for i, val in enumerate(y):
+                y_new[i, int(val)] = 1
+            y = y_new
+        elif y.ndim == 1 and self.n_salida == 1:
+            y = y.reshape(-1, 1)
+        
         precisiones_entrenamiento = []
         precisiones_prueba = []
         
@@ -72,24 +100,58 @@ class PerceptronMulticapa:
             # forward propagation
             salida = self.forward(X)
             
-            # backpropagation otra vez
+            # backpropagation
             self.backward(X, y, learning_rate)
             
-            # preciision
-            predicciones = (salida > 0.5).astype(int)
-            precision = np.mean(predicciones == y)
+            # precision
+            if self.n_salida > 1:
+                predicciones = np.argmax(salida, axis=1)
+                y_indices = np.argmax(y, axis=1)
+                precision = np.mean(predicciones == y_indices)
+            else:
+                predicciones = (salida > 0.5).astype(int)
+                precision = np.mean(predicciones == y)
+                
             precisiones_entrenamiento.append(precision)
+            
+            # hay datos de prueba, evaluar tambien
             if hasattr(self, 'X_prueba') and hasattr(self, 'y_prueba'):
-                salida_prueba = self.forward(self.X_prueba)
-                predicciones_prueba = (salida_prueba > 0.5).astype(int)
-                precision_prueba = np.mean(predicciones_prueba == self.y_prueba)
+                precision_prueba = self.evaluar(self.X_prueba, self.y_prueba)
                 precisiones_prueba.append(precision_prueba)
             
-            print(f"Época {epoca+1}/{epocas} - Precisión entrenamiento: {precision:.4f}")
-            if hasattr(self, 'X_prueba'):
-                print(f"Precision prueba: {precision_prueba:.4f}")
+            # imprimir progreso cada 10 epocas o en la ultima
+            if (epoca + 1) % 10 == 0 or epoca == epocas - 1:
+                print(f"Época {epoca+1}/{epocas} - Precisión entrenamiento: {precision:.4f}")
+                if hasattr(self, 'X_prueba'):
+                    print(f"Precisión prueba: {precisiones_prueba[-1]:.4f}")
         
         return precisiones_entrenamiento, precisiones_prueba
+    
+    def evaluar(self, X, y):
+        # x and y sean numpy arrays
+        X = np.array(X, dtype=float)
+        y = np.array(y, dtype=float)
+        
+        # manejar formato de y para salida unica y multiple
+        if y.ndim == 1 and self.n_salida > 1:
+            y_new = np.zeros((y.shape[0], self.n_salida))
+            for i, val in enumerate(y):
+                y_new[i, int(val)] = 1
+            y = y_new
+        elif y.ndim == 1 and self.n_salida == 1:
+            y = y.reshape(-1, 1)
+            
+        salida = self.forward(X)
+        
+        if self.n_salida > 1:
+            predicciones = np.argmax(salida, axis=1)
+            y_indices = np.argmax(y, axis=1)
+            precision = np.mean(predicciones == y_indices)
+        else:
+            predicciones = (salida > 0.5).astype(int)
+            precision = np.mean(predicciones == y)
+            
+        return precision
     
     def guardar(self, archivo):
         with open(archivo, 'wb') as f:
@@ -205,11 +267,15 @@ class Interfaz:
             n_capas_ocultas = int(self.n_capas_ocultas.get())
             n_neuronas_ocultas = int(self.n_neuronas_ocultas.get())
             
+            if n_entrada <= 0 or n_salida <= 0 or n_capas_ocultas <= 0 or n_neuronas_ocultas <= 0:
+                raise ValueError("Todos los valores deben ser mayores que cero")
+                
             self.red = PerceptronMulticapa(n_entrada, n_salida, n_capas_ocultas, n_neuronas_ocultas)
+            messagebox.showinfo("Información", "Red creada correctamente")
             self.mostrar_opciones_entrenamiento()
             
-        except ValueError:
-            messagebox.showerror("Error", "Por favor ingresa valores numericos validos")
+        except ValueError as e:
+            messagebox.showerror("Error", f"Por favor ingresa valores numéricos válidos: {str(e)}")
     
     def mostrar_opciones_entrenamiento(self):
         # entrenamiento
@@ -222,9 +288,15 @@ class Interfaz:
         ttk.Button(self.entrenamiento_frame, text="Cargar datos de prueba",
                   command=self.cargar_datos_prueba).pack(fill=tk.X, pady=5)
         
-        ttk.Label(self.entrenamiento_frame, text="Numero de epocas:").pack()
+        ttk.Label(self.entrenamiento_frame, text="Número de épocas:").pack()
         self.epocas = ttk.Entry(self.entrenamiento_frame)
+        self.epocas.insert(0, "100")  # Valor predeterminado
         self.epocas.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(self.entrenamiento_frame, text="Tasa de aprendizaje:").pack()
+        self.learning_rate = ttk.Entry(self.entrenamiento_frame)
+        self.learning_rate.insert(0, "0.1")  # Valor predeterminado
+        self.learning_rate.pack(fill=tk.X, pady=2)
         
         ttk.Button(self.entrenamiento_frame, text="Entrenar red",
                   command=self.entrenar_red).pack(fill=tk.X, pady=5)
@@ -235,18 +307,41 @@ class Interfaz:
             filetypes=[("Archivos de texto", "*.txt")]
         )
         
+        if not archivo_entradas:
+            return
+            
         archivo_salidas = filedialog.askopenfilename(
             title="Seleccionar archivo - salidas de entrenamiento",
             filetypes=[("Archivos de texto", "*.txt")]
         )
         
-        if archivo_entradas and archivo_salidas:
-            try:
-                self.X_entrenamiento = np.loadtxt(archivo_entradas, delimiter=',')
-                self.y_entrenamiento = np.loadtxt(archivo_salidas, delimiter=',')
-                messagebox.showinfo("Información", "Datos de entrenamiento cargados ")
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al cargar datos {str(e)}")
+        if not archivo_salidas:
+            return
+        
+        try:
+            self.X_entrenamiento = np.loadtxt(archivo_entradas, delimiter=',')
+            self.y_entrenamiento = np.loadtxt(archivo_salidas, delimiter=',')
+            
+            #validar dimensiones
+            if self.X_entrenamiento.ndim == 1:
+                self.X_entrenamiento = self.X_entrenamiento.reshape(1, -1)
+                
+            if self.y_entrenamiento.ndim == 1:
+                self.y_entrenamiento = self.y_entrenamiento.reshape(-1, 1)
+                
+            # verificar compatibilidad con la red
+            if self.red is not None:
+                if self.X_entrenamiento.shape[1] != self.red.n_entrada:
+                    messagebox.showerror("Error", f"El número de entradas ({self.X_entrenamiento.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
+                    self.X_entrenamiento = None
+                    self.y_entrenamiento = None
+                    return
+                    
+            messagebox.showinfo("Información", f"Datos de entrenamiento cargados: {self.X_entrenamiento.shape[0]} muestras")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
+            self.X_entrenamiento = None
+            self.y_entrenamiento = None
     
     def cargar_datos_prueba(self):
         archivo_entradas = filedialog.askopenfilename(
@@ -254,20 +349,44 @@ class Interfaz:
             filetypes=[("Archivos de texto", "*.txt")]
         )
         
+        if not archivo_entradas:
+            return
+            
         archivo_salidas = filedialog.askopenfilename(
             title="Seleccionar archivo - salidas de prueba",
             filetypes=[("Archivos de texto", "*.txt")]
         )
         
-        if archivo_entradas and archivo_salidas:
-            try:
-                self.X_prueba = np.loadtxt(archivo_entradas, delimiter=',')
-                self.y_prueba = np.loadtxt(archivo_salidas, delimiter=',')
+        if not archivo_salidas:
+            return
+        
+        try:
+            self.X_prueba = np.loadtxt(archivo_entradas, delimiter=',')
+            self.y_prueba = np.loadtxt(archivo_salidas, delimiter=',')
+            
+            # validar dimensiones
+            if self.X_prueba.ndim == 1:
+                self.X_prueba = self.X_prueba.reshape(1, -1)
+                
+            if self.y_prueba.ndim == 1:
+                self.y_prueba = self.y_prueba.reshape(-1, 1)
+                
+            # verificar compatibilidad con la red
+            if self.red is not None:
+                if self.X_prueba.shape[1] != self.red.n_entrada:
+                    messagebox.showerror("Error", f"El número de entradas de prueba ({self.X_prueba.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
+                    self.X_prueba = None
+                    self.y_prueba = None
+                    return
+                    
                 self.red.X_prueba = self.X_prueba
                 self.red.y_prueba = self.y_prueba
-                messagebox.showinfo("Información", "Datos de prueba cargados ")
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
+                
+            messagebox.showinfo("Información", f"Datos de prueba cargados: {self.X_prueba.shape[0]} muestras")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
+            self.X_prueba = None
+            self.y_prueba = None
     
     def entrenar_red(self):
         if self.red is None:
@@ -279,33 +398,68 @@ class Interfaz:
             return
         
         try:
-            epocas = int(self.epocas.get())
+            # validar y convertir los valores de entrada
+            epocas_str = self.epocas.get().strip()
+            if not epocas_str:
+                messagebox.showerror("Error", "El campo de épocas no puede estar vacío")
+                return
+                
+            try:
+                epocas = int(epocas_str)
+                if epocas <= 0:
+                    messagebox.showerror("Error", "El número de épocas debe ser mayor que cero")
+                    return
+            except ValueError:
+                messagebox.showerror("Error", "Por favor, ingrese un número válido para las épocas")
+                return
+                
+            # validar tasa de aprendizaje
+            learning_rate_str = self.learning_rate.get().strip()
+            if not learning_rate_str:
+                learning_rate = 0.1  # Valor predeterminado
+            else:
+                try:
+                    learning_rate = float(learning_rate_str)
+                    if learning_rate <= 0 or learning_rate > 1:
+                        messagebox.showerror("Error", "La tasa de aprendizaje debe estar entre 0 y 1")
+                        return
+                except ValueError:
+                    messagebox.showerror("Error", "Por favor, ingrese un número válido para la tasa de aprendizaje")
+                    return
+            
+            # mostrar mensaje de inicio
+            self.resultados_text.delete(1.0, tk.END)
+            self.resultados_text.insert(tk.END, f"Entrenando red con {epocas} épocas y tasa de aprendizaje {learning_rate}...\n")
+            self.root.update()  # actualizar interfaz para mostrar mensaje
+            
+            # entrenar red
             precisiones_entrenamiento, precisiones_prueba = self.red.entrenar(
-                self.X_entrenamiento, self.y_entrenamiento, epocas
+                self.X_entrenamiento, self.y_entrenamiento, epocas, learning_rate
             )
             
-            # grafico de preciosion
+            # grafico de precision
             self.ax.clear()
             self.ax.plot(range(1, epocas + 1), precisiones_entrenamiento, label='Entrenamiento')
             if precisiones_prueba:
                 self.ax.plot(range(1, epocas + 1), precisiones_prueba, label='Prueba')
-            self.ax.set_xlabel('Epoca')
-            self.ax.set_ylabel('Precision')
-            self.ax.set_title('Precision por Epoca')
+            self.ax.set_xlabel('Época')
+            self.ax.set_ylabel('Precisión')
+            self.ax.set_title('Precisión por Época')
             self.ax.legend()
             self.canvas.draw()
             
             # resultados 
             self.resultados_text.delete(1.0, tk.END)
-            self.resultados_text.insert(tk.END, f"Precision final de entrenamiento: {precisiones_entrenamiento[-1]:.4f}\n")
+            self.resultados_text.insert(tk.END, f"Entrenamiento completado con {epocas} épocas\n")
+            self.resultados_text.insert(tk.END, f"Precisión final de entrenamiento: {precisiones_entrenamiento[-1]:.4f}\n")
             if precisiones_prueba:
-                self.resultados_text.insert(tk.END, f"Precision final de prueba: {precisiones_prueba[-1]:.4f}\n")
+                self.resultados_text.insert(tk.END, f"Precisión final de prueba: {precisiones_prueba[-1]:.4f}\n")
             
             # guardar
             self.mostrar_opciones_post_entrenamiento()
             
-        except ValueError:
-            messagebox.showerror("Error", "Por favor ingrese un numero válido de epocas")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error durante el entrenamiento: {str(e)}")
     
     def mostrar_opciones_post_entrenamiento(self):
         # limpiar prueba
@@ -338,7 +492,7 @@ class Interfaz:
         if archivo:
             try:
                 self.red.guardar(archivo)
-                messagebox.showinfo("Información", "Red guardada")
+                messagebox.showinfo("Informacion", "Red guardada correctamente en " + archivo)
             except Exception as e:
                 messagebox.showerror("Error", f"Error al guardar la red: {str(e)}")
     
@@ -351,7 +505,7 @@ class Interfaz:
         if archivo:
             try:
                 self.red = PerceptronMulticapa.cargar(archivo)
-                messagebox.showinfo("Información", "Red cargada")
+                messagebox.showinfo("Informacion", "Red cargada correctamente")
                 self.mostrar_opciones_entrenamiento()
             except Exception as e:
                 messagebox.showerror("Error", f"Error al cargar la red: {str(e)}")
@@ -378,20 +532,37 @@ class Interfaz:
         
         def calcular():
             try:
-                vector = np.array([float(entrada.get()) for entrada in entradas])
-                if len(vector) != self.red.n_entrada:
-                    raise ValueError("Numero incorrecto de entradas")
+                # validar valores
+                vector = []
+                for i, entrada in enumerate(entradas):
+                    try:
+                        valor = float(entrada.get().strip())
+                        vector.append(valor)
+                    except ValueError:
+                        messagebox.showerror("Error", f"El valor para la entrada {i+1} no es válido")
+                        return
                 
+                if len(vector) != self.red.n_entrada:
+                    messagebox.showerror("Error", "Numero incorrecto de entradas")
+                    return
+                
+                vector = np.array(vector, dtype=float)
                 salida = self.red.forward(vector.reshape(1, -1))
-                prediccion = (salida > 0.5).astype(int)
+                
+                if self.red.n_salida > 1:
+                    prediccion = np.argmax(salida, axis=1)
+                    mensaje_prediccion = f"Clase predicha: {prediccion[0]}"
+                else:
+                    prediccion = (salida > 0.5).astype(int)
+                    mensaje_prediccion = f"Prediccion: {prediccion[0][0]}"
                 
                 self.resultados_text.delete(1.0, tk.END)
                 self.resultados_text.insert(tk.END, f"Vector de entrada: {vector}\n")
-                self.resultados_text.insert(tk.END, f"Salida: {salida}\n")
-                self.resultados_text.insert(tk.END, f"Prediccion: {prediccion}\n")
+                self.resultados_text.insert(tk.END, f"Salida de la red: {salida[0]}\n")
+                self.resultados_text.insert(tk.END, mensaje_prediccion)
                 
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al procesar el vector: {str(e)}")
         
         ttk.Button(frame, text="Calcular", command=calcular).pack(pady=10)
     
@@ -408,14 +579,23 @@ class Interfaz:
         if archivo:
             try:
                 X = np.loadtxt(archivo, delimiter=',')
+                
+                # 1 sola muestra 
+                if X.ndim == 1:
+                    X = X.reshape(1, -1)
+                    
                 if X.shape[1] != self.red.n_entrada:
-                    raise ValueError("Numero incorrecto de entradas en el archivo")
+                    raise ValueError(f"Numero incorrecto de entradas en el archivo (esperado: {self.red.n_entrada}, encontrado: {X.shape[1]})")
                 
                 salidas = self.red.forward(X)
-                predicciones = (salidas > 0.5).astype(int)
+                
+                if self.red.n_salida > 1:
+                    predicciones = np.argmax(salidas, axis=1)
+                else:
+                    predicciones = (salidas > 0.5).astype(int)
                 
                 self.resultados_text.delete(1.0, tk.END)
-                self.resultados_text.insert(tk.END, "Resultados de la prueba:\n\n")
+                self.resultados_text.insert(tk.END, f"Resultados de la prueba:\n\n")
                 for i, (entrada, salida, prediccion) in enumerate(zip(X, salidas, predicciones)):
                     self.resultados_text.insert(tk.END, f"Vector {i+1}:\n")
                     self.resultados_text.insert(tk.END, f"Entrada: {entrada}\n")
@@ -432,4 +612,4 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
-    main() 
+    main()
