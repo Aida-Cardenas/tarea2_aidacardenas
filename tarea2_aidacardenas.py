@@ -202,7 +202,7 @@ class Interfaz:
         self.crear_interfaz()
     
     def crear_interfaz(self):
-        # frame
+    # frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -229,14 +229,32 @@ class Interfaz:
         self.resultados_frame = ttk.LabelFrame(main_frame, text="Resultados", padding="10")
         self.resultados_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        # resultados
-        self.resultados_text = ScrolledText(self.resultados_frame, wrap=tk.WORD, height=10, bg='#E6F3FF', fg='#003366', font=('Consolas', 10))
-        self.resultados_text.pack(fill=tk.BOTH, expand=True)
+        # frame texto y grafico
+        resultados_container = ttk.Frame(self.resultados_frame)
+        resultados_container.pack(fill=tk.BOTH, expand=True)
+        
+        # dividir texto arriba grafico abajo
+        texto_frame = ttk.Frame(resultados_container)
+        texto_frame.pack(fill=tk.X, pady=5)
+        
+        grafico_frame = ttk.Frame(resultados_container)
+        grafico_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # resultados texto
+        self.resultados_text = ScrolledText(texto_frame, wrap=tk.WORD, height=8, bg='#E6F3FF', fg='#003366', font=('Consolas', 10))
+        self.resultados_text.pack(fill=tk.X)
         
         # grafico, lo que hace uno por un punto extra
-        self.fig, self.ax = plt.subplots(figsize=(6, 4))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.resultados_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.fig, self.ax = plt.subplots(figsize=(10, 6), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=grafico_frame)
+        canvas_widget = self.canvas.get_tk_widget()
+        canvas_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # grafico no se buggea dios plan
+        grafico_frame.update()
+        min_height = 400  
+        grafico_frame.pack_propagate(False)  
+        grafico_frame.configure(height=min_height)  
     
     def crear_nueva_red(self):
         for widget in self.config_frame.winfo_children():
