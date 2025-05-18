@@ -28,17 +28,14 @@ class PerceptronMulticapa:
         self.sesgos.append(np.zeros((1, n_salida)))
     
     def sigmoide(self, x):
-        # Agregar clipeo para evitar desbordamiento
         return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
     
     def derivada_sigmoide(self, x):
         return x * (1 - x)
     
     def forward(self, X):
-        # Asegurar que X sea un numpy array
         X = np.array(X, dtype=float)
         
-        # Manejar casos de una sola muestra (1D)
         if X.ndim == 1:
             X = X.reshape(1, -1)
             
@@ -58,7 +55,7 @@ class PerceptronMulticapa:
         # asegurar que y sea un numpy array
         y = np.array(y, dtype=float)
         
-        # manejar casos de una sola muestra (1D)
+        # manejar casos de una sola muestra (1D baby you light up my word like nobody else -perdón profe)
         if y.ndim == 1 and self.n_salida > 1:
             y = y.reshape(1, -1)
             
@@ -84,7 +81,6 @@ class PerceptronMulticapa:
         X = np.array(X, dtype=float)
         y = np.array(y, dtype=float)
         
-        # manejar formato de y para salida única y multiple
         if y.ndim == 1 and self.n_salida > 1:
             y_new = np.zeros((y.shape[0], self.n_salida))
             for i, val in enumerate(y):
@@ -114,7 +110,6 @@ class PerceptronMulticapa:
                 
             precisiones_entrenamiento.append(precision)
             
-            # hay datos de prueba, evaluar tambien
             if hasattr(self, 'X_prueba') and hasattr(self, 'y_prueba'):
                 precision_prueba = self.evaluar(self.X_prueba, self.y_prueba)
                 precisiones_prueba.append(precision_prueba)
@@ -132,7 +127,6 @@ class PerceptronMulticapa:
         X = np.array(X, dtype=float)
         y = np.array(y, dtype=float)
         
-        # manejar formato de y para salida unica y multiple
         if y.ndim == 1 and self.n_salida > 1:
             y_new = np.zeros((y.shape[0], self.n_salida))
             for i, val in enumerate(y):
@@ -181,7 +175,7 @@ class PerceptronMulticapa:
 class Interfaz:
     def __init__(self, root):
         self.root = root
-        self.root.title("Perceptron Multicapa - Aida Cardenas")
+        self.root.title("Perceptron Multicapa - Aida Cardenas :)")
         self.root.geometry("1000x800")
         self.root.resizable(True, True)
         
@@ -308,12 +302,12 @@ class Interfaz:
         
         ttk.Label(self.entrenamiento_frame, text="Número de épocas:").pack()
         self.epocas = ttk.Entry(self.entrenamiento_frame)
-        self.epocas.insert(0, "100")  # Valor predeterminado
+        self.epocas.insert(0, "100")  # valor predeterminado porsia
         self.epocas.pack(fill=tk.X, pady=2)
         
         ttk.Label(self.entrenamiento_frame, text="Tasa de aprendizaje:").pack()
         self.learning_rate = ttk.Entry(self.entrenamiento_frame)
-        self.learning_rate.insert(0, "0.1")  # Valor predeterminado
+        self.learning_rate.insert(0, "0.1")  # valor predeterminado porsia
         self.learning_rate.pack(fill=tk.X, pady=2)
         
         ttk.Button(self.entrenamiento_frame, text="Entrenar red",
@@ -350,7 +344,7 @@ class Interfaz:
             # verificar compatibilidad con la red
             if self.red is not None:
                 if self.X_entrenamiento.shape[1] != self.red.n_entrada:
-                    messagebox.showerror("Error", f"El número de entradas ({self.X_entrenamiento.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
+                    messagebox.showerror("Error", f"El numero de entradas ({self.X_entrenamiento.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
                     self.X_entrenamiento = None
                     self.y_entrenamiento = None
                     return
@@ -392,7 +386,7 @@ class Interfaz:
             # verificar compatibilidad con la red
             if self.red is not None:
                 if self.X_prueba.shape[1] != self.red.n_entrada:
-                    messagebox.showerror("Error", f"El número de entradas de prueba ({self.X_prueba.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
+                    messagebox.showerror("Error", f"El numero de entradas de prueba ({self.X_prueba.shape[1]}) no coincide con la configuración de la red ({self.red.n_entrada})")
                     self.X_prueba = None
                     self.y_prueba = None
                     return
@@ -400,7 +394,7 @@ class Interfaz:
                 self.red.X_prueba = self.X_prueba
                 self.red.y_prueba = self.y_prueba
                 
-            messagebox.showinfo("Información", f"Datos de prueba cargados: {self.X_prueba.shape[0]} muestras")
+            messagebox.showinfo("Informacion", f"Datos de prueba cargados: {self.X_prueba.shape[0]} muestras")
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
             self.X_prueba = None
@@ -419,22 +413,22 @@ class Interfaz:
             # validar y convertir los valores de entrada
             epocas_str = self.epocas.get().strip()
             if not epocas_str:
-                messagebox.showerror("Error", "El campo de épocas no puede estar vacío")
+                messagebox.showerror("Error", "Epocas no puede estar vacio")
                 return
                 
             try:
                 epocas = int(epocas_str)
                 if epocas <= 0:
-                    messagebox.showerror("Error", "El número de épocas debe ser mayor que cero")
+                    messagebox.showerror("Error", "El num de épocas debe ser mayor que cero")
                     return
             except ValueError:
-                messagebox.showerror("Error", "Por favor, ingrese un número válido para las épocas")
+                messagebox.showerror("Error", "Ingrese un numero valido de epocas >:(")
                 return
                 
             # validar tasa de aprendizaje
             learning_rate_str = self.learning_rate.get().strip()
             if not learning_rate_str:
-                learning_rate = 0.1  # Valor predeterminado
+                learning_rate = 0.1 
             else:
                 try:
                     learning_rate = float(learning_rate_str)
@@ -442,20 +436,20 @@ class Interfaz:
                         messagebox.showerror("Error", "La tasa de aprendizaje debe estar entre 0 y 1")
                         return
                 except ValueError:
-                    messagebox.showerror("Error", "Por favor, ingrese un número válido para la tasa de aprendizaje")
+                    messagebox.showerror("Error", "Ingrese un num valido para la tasa de aprendizaje")
                     return
             
             # mostrar mensaje de inicio
             self.resultados_text.delete(1.0, tk.END)
-            self.resultados_text.insert(tk.END, f"Entrenando red con {epocas} épocas y tasa de aprendizaje {learning_rate}...\n")
-            self.root.update()  # actualizar interfaz para mostrar mensaje
+            self.resultados_text.insert(tk.END, f"Entrenando red con: {epocas} epocas y tasa de aprendizaje {learning_rate}\n")
+            self.root.update()  
             
             # entrenar red
             precisiones_entrenamiento, precisiones_prueba = self.red.entrenar(
                 self.X_entrenamiento, self.y_entrenamiento, epocas, learning_rate
             )
             
-            # grafico de precision
+            # grafico de precision me voy a matar si no funcionas amigo te lo juro
             self.ax.clear()
             self.ax.plot(range(1, epocas + 1), precisiones_entrenamiento, label='Entrenamiento')
             if precisiones_prueba:
@@ -468,10 +462,10 @@ class Interfaz:
             
             # resultados 
             self.resultados_text.delete(1.0, tk.END)
-            self.resultados_text.insert(tk.END, f"Entrenamiento completado con {epocas} épocas\n")
-            self.resultados_text.insert(tk.END, f"Precisión final de entrenamiento: {precisiones_entrenamiento[-1]:.4f}\n")
+            self.resultados_text.insert(tk.END, f"Entrenamiento completado con {epocas} epocas\n")
+            self.resultados_text.insert(tk.END, f"Precision final de entrenamiento: {precisiones_entrenamiento[-1]:.4f}\n")
             if precisiones_prueba:
-                self.resultados_text.insert(tk.END, f"Precisión final de prueba: {precisiones_prueba[-1]:.4f}\n")
+                self.resultados_text.insert(tk.END, f"Precision final de prueba: {precisiones_prueba[-1]:.4f}\n")
             
             # guardar
             self.mostrar_opciones_post_entrenamiento()
